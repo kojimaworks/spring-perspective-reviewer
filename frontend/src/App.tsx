@@ -15,7 +15,8 @@ function App() {
         body: JSON.stringify({ code }),
       })
       const data = await res.json()
-      setResult(JSON.stringify(data, null, 2))
+      // review があればそれを、なければJSON全体を表示
+      setResult(data.review ?? JSON.stringify(data, null, 2))
     } catch (e) {
       setResult('エラー: ' + String(e))
     } finally {

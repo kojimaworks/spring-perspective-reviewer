@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import 'dotenv/config'
+import { client, MODEL } from './anthropic'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -15,19 +16,46 @@ app.get('/api/health', (req: Request, res: Response) => {
 })
 
 // レビューエンドポイント
-app.post('/api/review', (req: Request, res: Response) => {
+app.post('/api/review', async (req: Request, res: Response) => {
   const { code } = req.body
-  res.json({
-    summary: { total_findings: 1, by_severity: { '必須': 1 } },
-    findings: [
-      {
-        aspect: 'readability',
-        rule: 'mock',
-        severity: '必須',
-        message: 'これはモック応答です。受け取ったコードの先頭50文字: ' + (code?.slice(0, 50) ?? '(空)'),
-      },
-    ],
-  })
+
+  if (!code || typeof code !== 'string') {
+    res.status(400).json({ error: 'code (string) is required' })
+    return
+  }
+
+  try {
+    const message = await client.messages.create({
+      model: MODEL,
+      max_tokens: 2000,
+      system:
+        'あなたはJava/Springプロジェクトのコードレビュー専門家です。' +
+        '提示されたコードを6つの品質観点（可読性・一貫性・保守性・安全性・再利用性・性能効率性）で' +
+        'レビューし、観点別に指摘してください。指摘がない観点は「特になし」と記載してください。',
+      messages: [
+        {
+          role: 'user',
+          content: `以下のJavaコードをレビューしてください:\n\n\`\`\`java\n${code}\n\`\`\``,
+        },
+      ],
+    })
+
+    // レスポンスからテキストを抽出
+    const text = message.content
+      .filter((block) => block.type === 'text')
+      .map((block) => (block as { type: 'text'; text: string }).text)
+      .join('\n')
+
+    console.log('usage:', message.usage)
+
+    res.json({
+      review: text,
+      usage: message.usage,  // 入出力トークン数も返しておく（学習用）
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: String(e) })
+  }
 })
 
 app.listen(PORT, () => {
