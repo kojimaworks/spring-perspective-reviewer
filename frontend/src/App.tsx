@@ -26,6 +26,8 @@ interface Finding {
 interface Usage {
   input_tokens: number;
   output_tokens: number;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
 }
 
 interface ReviewResult {
@@ -51,10 +53,19 @@ const SEVERITY_COLOR: Record<Severity, string> = {
   任意: "#5bc0de",
 };
 
-// Sonnet 4.6 価格: input $3/Mtok, output $15/Mtok
+// Sonnet 4.6 価格:
+//   input $3/Mtok
+//   cache write $3.75/Mtok (1.25x)
+//   cache read $0.30/Mtok  (0.10x)
+//   output $15/Mtok
 const calcCost = (u: Usage): string => {
-  const cost = (u.input_tokens * 3 + u.output_tokens * 15) / 1_000_000;
-  return `≈ $${cost.toFixed(4)}`;
+  const inputCost = u.input_tokens * 3;
+  const cacheCreateCost = (u.cache_creation_input_tokens ?? 0) * 3.75;
+  const cacheReadCost = (u.cache_read_input_tokens ?? 0) * 0.3;
+  const outputCost = u.output_tokens * 15;
+  const total =
+    (inputCost + cacheCreateCost + cacheReadCost + outputCost) / 1_000_000;
+  return `≈ $${total.toFixed(4)}`;
 };
 
 const filterBySeverity = (
@@ -328,8 +339,17 @@ function App() {
                 fontSize: 13,
               }}
             >
-              💰 input: {usage.input_tokens} tok / output: {usage.output_tokens}{" "}
-              tok / {calcCost(usage)}
+              <div>💰 cost: {calcCost(usage)}</div>
+              <div style={{ marginTop: 4 }}>
+                input: {usage.input_tokens} tok
+                {usage.cache_creation_input_tokens
+                  ? ` / cache作成: ${usage.cache_creation_input_tokens}`
+                  : ""}
+                {usage.cache_read_input_tokens
+                  ? ` / cache読込: ${usage.cache_read_input_tokens}`
+                  : ""}
+                {" / "}output: {usage.output_tokens} tok
+              </div>
             </div>
           )}
         </div>

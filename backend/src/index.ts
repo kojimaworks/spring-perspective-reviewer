@@ -32,7 +32,9 @@ app.post("/api/review", async (req: Request, res: Response) => {
 
   // aspects 未指定なら全観点
   const selectedAspects: Aspect[] =
-    aspects && aspects.length > 0 ? aspects : ALL_ASPECTS;
+    aspects && aspects.length > 0
+      ? ALL_ASPECTS.filter((a) => aspects.includes(a))
+      : ALL_ASPECTS;
 
   try {
     const systemPrompt = await buildSystemPrompt(selectedAspects);
@@ -40,9 +42,15 @@ app.post("/api/review", async (req: Request, res: Response) => {
     const message = await client.messages.create({
       model: MODEL,
       max_tokens: 8000,
-      system: systemPrompt,
+      system: [
+        {
+          type: "text",
+          text: systemPrompt,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       tools: [REPORT_FINDINGS_TOOL],
-      tool_choice: { type: "tool", name: "report_findings" }, // 必ずこのツールを呼ばせる
+      tool_choice: { type: "tool", name: "report_findings" },
       messages: [
         {
           role: "user",
