@@ -1,6 +1,7 @@
 ## 保守性 (Maintainability)
 
 以下の観点でレビューしてください:
+
 - **[必須]** DI方式: コンストラクタインジェクション（@Autowired フィールド注入は警告）
 - **[必須]** @Transactional の伝播・rollbackFor 妥当性、private メソッドへの付与禁止
 - **[必須]** ハードコード設定値（URL・閾値・マジックナンバー）
